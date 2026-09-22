@@ -13,7 +13,7 @@ class Server{
 
         this.paths = {
         //     address      : '/api/address',
-        //     auth         : '/api/auth',
+            auth         : '/api/auth',
         //     products     : '/api/products',
         //     sells        : '/api/sells',
         //     sellFinished : '/api/sell-finished',
@@ -55,7 +55,7 @@ class Server{
 
     routes() {
         // this.app.use( this.paths.address, require('../routes/address.route'));
-        // this.app.use( this.paths.auth, require('../routes/auth.route'));
+        this.app.use( this.paths.auth, require('../routes/auth.route'));
         // this.app.use( this.paths.products, require('../routes/products.route'));
         // this.app.use( this.paths.sells, require('../routes/sell.route'));
         // this.app.use( this.paths.sellFinished, require('../routes/sell-finished.route'));

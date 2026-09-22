@@ -5,6 +5,10 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "migrate:create": "migrate-mongo create",
+    "migrate:up": "migrate-mongo up",
+    "migrate:down": "migrate-mongo down",
+    "migrate:status": "migrate-mongo status",
     "start": "node app.js",
     "dev": "nodemon --legacy-watch app.js"
   },
@@ -40,6 +44,7 @@
     "uuid": "^14.0.2"
   },
   "devDependencies": {
+    "migrate-mongo": "^14.0.7",
     "nodemon": "^3.1.14"
   }
 }
