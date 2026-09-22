@@ -247,7 +247,6 @@ async function sendSellConfirmationEmail(sell) {
               <td style="width:94px;vertical-align:top;padding-right:14px;">${productImgHtml}</td>
               <td style="vertical-align:top;">
                 <table style="width:100%;border-collapse:collapse;font-size:14px;">
-                  <tr><td style="color:#24292e;font-weight:500;padding:4px 0;width:50%;">Talla</td><td style="color:#586069;padding:4px 0;">${line.size}</td></tr>
                   <tr><td style="color:#24292e;font-weight:500;padding:4px 0;">Cantidad</td><td style="color:#586069;padding:4px 0;">${line.quantity}</td></tr>
                   <tr><td style="color:#24292e;font-weight:500;padding:4px 0;">Subtotal</td><td style="color:#586069;padding:4px 0;">Q ${line.subTotal.toFixed(2)}</td></tr>
                   <tr><td style="color:#24292e;font-weight:500;padding:4px 0;">Ubicación del logo</td><td style="color:#586069;padding:4px 0;">${logoLabel}</td></tr>
@@ -492,7 +491,6 @@ async function sendAdminSellConfirmationNotificationEmail(sell, recipients) {
     return `
       <tr>
         <td style="padding:7px 10px;border-bottom:1px solid #e1e4e8;font-size:13px;color:#24292e;">${title}</td>
-        <td style="padding:7px 10px;border-bottom:1px solid #e1e4e8;font-size:13px;color:#586069;text-align:center;">${line.size}</td>
         <td style="padding:7px 10px;border-bottom:1px solid #e1e4e8;font-size:13px;color:#586069;text-align:center;">${line.quantity}</td>
         <td style="padding:7px 10px;border-bottom:1px solid #e1e4e8;font-size:13px;color:#586069;text-align:right;">Q ${subTotal}</td>
       </tr>`;
@@ -547,7 +545,6 @@ async function sendAdminSellConfirmationNotificationEmail(sell, recipients) {
             <thead>
               <tr style="background-color:#f6f8fa;">
                 <th style="padding:7px 10px;font-size:11px;font-weight:600;color:#586069;text-align:left;border-bottom:1px solid #e1e4e8;">Producto</th>
-                <th style="padding:7px 10px;font-size:11px;font-weight:600;color:#586069;text-align:center;border-bottom:1px solid #e1e4e8;">Talla</th>
                 <th style="padding:7px 10px;font-size:11px;font-weight:600;color:#586069;text-align:center;border-bottom:1px solid #e1e4e8;">Cant.</th>
                 <th style="padding:7px 10px;font-size:11px;font-weight:600;color:#586069;text-align:right;border-bottom:1px solid #e1e4e8;">Subtotal</th>
               </tr>

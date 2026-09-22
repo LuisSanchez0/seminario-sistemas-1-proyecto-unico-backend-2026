@@ -1,0 +1,12 @@
+const PRODUCT_CATEGORIES = Object.freeze([
+  'ROSTRO',
+  'OJOS_Y_CEJAS',
+  'LABIOS',
+  'LIMPIEZA',
+  'TRATAMIENTOS',
+  'HIDRATACION',
+  'PROTECCION_SOLAR',
+  'PERFUMES',
+]);
+
+module.exports = { PRODUCT_CATEGORIES };

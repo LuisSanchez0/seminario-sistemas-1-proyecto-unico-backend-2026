@@ -14,7 +14,10 @@ class Server{
         this.paths = {
         //     address      : '/api/address',
             auth         : '/api/auth',
-        //     products     : '/api/products',
+            products     : '/api/products',
+            brands       : '/api/brands',
+            subcategories: '/api/subcategories',
+            productImages: '/api/upload/products',
         //     sells        : '/api/sells',
         //     sellFinished : '/api/sell-finished',
         //     stats        : '/api/stats',
@@ -56,7 +59,10 @@ class Server{
     routes() {
         // this.app.use( this.paths.address, require('../routes/address.route'));
         this.app.use( this.paths.auth, require('../routes/auth.route'));
-        // this.app.use( this.paths.products, require('../routes/products.route'));
+        this.app.use( this.paths.products, require('../routes/products.route'));
+        this.app.use( this.paths.brands, require('../routes/brands.route'));
+        this.app.use( this.paths.subcategories, require('../routes/subcategories.route'));
+        this.app.use( this.paths.productImages, require('../routes/product-images.route'));
         // this.app.use( this.paths.sells, require('../routes/sell.route'));
         // this.app.use( this.paths.sellFinished, require('../routes/sell-finished.route'));
         // this.app.use( this.paths.stats, require('../routes/stats.route'));

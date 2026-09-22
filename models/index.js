@@ -1,15 +1,13 @@
-const Address = require('./address');
-const Product = require('./pruduct');
-const Sell = require('./sell');
-const SellFinished = require('./sell-finished');
+const Product = require('./product');
+const Brand = require('./brand');
+const Subcategory = require('./subcategory');
 const Server = require('./server');
 const User = require('./user');
 
 module.exports = {
-    Address,
     Product,
-    Sell,
-    SellFinished,
+    Brand,
+    Subcategory,
     Server,
     User
 }

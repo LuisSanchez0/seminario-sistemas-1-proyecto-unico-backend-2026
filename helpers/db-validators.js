@@ -1,4 +1,5 @@
-const { User, Product, Address, Sell } = require('../models');
+const { isObjectIdOrHexString } = require('mongoose');
+const { User, Product, Brand, Subcategory, Address, Sell } = require('../models');
 
 const registerEmail = async ( email = '' ) => {
 
@@ -37,11 +38,39 @@ const includedColection = ( coleccion = '', allowCollection = [] ) => {
 }
 
 const existingProduct = async( id = '' ) => {
-    const productExists = await Product.findById( id );
+    const productExists = await Product.findOne({ _id: id, state: true });
     if( !productExists ){
         throw new Error(`El id no pertence a ningun producto ${ id }`)
     }
 }
+
+const catalogValidationError = msg => Object.assign(new Error(msg), { status: 400 });
+
+const existingBrand = async (id = '') => {
+    if (!isObjectIdOrHexString(id)) {
+        throw catalogValidationError('El ID de la marca no es válido');
+    }
+    const brand = await Brand.findOne({ _id: id, state: true });
+    if (!brand) throw catalogValidationError('La marca no existe o está inactiva');
+    return brand;
+};
+
+const existingSubcategory = async (id = '') => {
+    if (!isObjectIdOrHexString(id)) {
+        throw catalogValidationError('El ID de la subcategoría no es válido');
+    }
+    const subcategory = await Subcategory.findOne({ _id: id, state: true });
+    if (!subcategory) throw catalogValidationError('La subcategoría no existe o está inactiva');
+    return subcategory;
+};
+
+const validateSubcategoryForCategory = async (id, category) => {
+    const subcategory = await existingSubcategory(id);
+    if (subcategory.category !== category) {
+        throw catalogValidationError('La subcategoría seleccionada no pertenece a la categoría del producto');
+    }
+    return subcategory;
+};
 
 const validatePhoneNumber = async (phone = '') => {
   const regex = /^[0-9]{8}$/;
@@ -75,6 +104,9 @@ const existingSell = async ( id = '' ) => {
 }
 
 module.exports = {
+    existingBrand,
+    existingSubcategory,
+    validateSubcategoryForCategory,
     existsAddress,
     existingGoogleUser,
     existingProduct,
