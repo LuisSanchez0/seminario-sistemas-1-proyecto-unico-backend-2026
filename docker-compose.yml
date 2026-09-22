@@ -15,8 +15,10 @@ services:
       - .env
 
     environment:
-      REDIS_HOST: redis
-      REDIS_PORT: 6390
+      # Dentro de la red de Compose el host es el nombre del servicio (redis)
+      # y el puerto es el INTERNO (6379), no el publicado en el host (6390).
+      # Esto sobreescribe el REDIS_URL del .env, que sirve para correr fuera de Docker.
+      REDIS_URL: redis://redis:6379
 
     depends_on:
       redis:

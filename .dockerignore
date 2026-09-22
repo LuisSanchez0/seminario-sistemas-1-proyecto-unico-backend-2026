@@ -6,3 +6,7 @@ Dockerfile
 docker-compose.yml
 README.md
 tmp
+
+# Secretos: las variables llegan por env_file de Compose, NO deben hornearse en la imagen
+.env
+.env.*
