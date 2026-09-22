@@ -1,0 +1,45 @@
+{
+  "name": "seminario-sistemas-1-proyecto-unico-backend-2026",
+  "version": "1.0.0",
+  "description": "Proyecto personal para el curso de Seminario de Sistemas I, enfocado en la realización de un ecommerce para una empresa de venta de cosmeticos.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node app.js",
+    "dev": "nodemon --legacy-watch app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LuisSanchez0/seminario-sistemas-1-proyecto-unico-backend-2026.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/LuisSanchez0/seminario-sistemas-1-proyecto-unico-backend-2026/issues"
+  },
+  "homepage": "https://github.com/LuisSanchez0/seminario-sistemas-1-proyecto-unico-backend-2026#readme",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1136.0",
+    "@aws-sdk/s3-request-presigner": "^3.1136.0",
+    "aws-sdk": "^2.1693.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "crypto": "^1.0.1",
+    "dotenv": "^18.0.1",
+    "express": "^5.2.1",
+    "express-fileupload": "^1.5.2",
+    "express-validator": "^7.3.2",
+    "google-auth-library": "^10.9.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.10.1",
+    "nodemailer": "^10.0.10",
+    "redis": "^6.2.1",
+    "sharp": "^0.35.4",
+    "uuid": "^14.0.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
