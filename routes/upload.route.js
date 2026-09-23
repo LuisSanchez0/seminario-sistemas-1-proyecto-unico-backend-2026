@@ -1,11 +1,11 @@
 const { Router } = require('express');
 const { check } = require('express-validator');
 
-const { addImageToArray, addProductLogoToSell, removeImageFromArray, uploadSellFinishedInvoice, uploadSellFinishedShippingGuide } = require('../controllers/uploads.controller');
+const { addImageToArray, addProductLogoToSell, removeImageFromArray, reorderProductImages, uploadSellFinishedInvoice, uploadSellFinishedShippingGuide } = require('../controllers/uploads.controller');
 
 const { validateFields, validateFiles, validateJWT, isAdminRole } = require('../middlewares');
 
-const { includedColection } = require('../helpers');
+const { includedColection, uniqueImageKeys } = require('../helpers');
 
 const router = Router();
 
@@ -53,6 +53,17 @@ router.post('/:colection/:id', [
   check('colection').custom(c => includedColection(c, ['users', 'sells'])),
   validateFields,
 ], addImageToArray);
+
+//! Reordenar las imágenes de un producto — solo ADMIN (el arreglo define la portada)
+router.patch('/products/:id/images/order', [
+  validateJWT,
+  isAdminRole,
+  check('id', 'El id no es válido').isMongoId(),
+  check('keys', 'keys debe ser un arreglo con las keys de las imágenes del producto').isArray(),
+  check('keys.*', 'Cada key debe ser un texto no vacío').isString().bail().notEmpty(),
+  check('keys').custom(uniqueImageKeys),
+  validateFields,
+], (req, res, next) => { req.params.colection = 'products'; next(); }, reorderProductImages);
 
 //! Eliminar imagen de producto — solo ADMIN (debe ir antes de /:colection/:id)
 router.delete('/products/:id', [

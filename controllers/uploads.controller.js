@@ -170,6 +170,84 @@ const removeImageFromArray = async (req, res = response) => {
   }
 };
 
+const reorderProductImages = async (req, res = response) => {
+  const { id } = req.params;
+  const { keys } = req.body;
+
+  const product = await Product.findOne({ _id: id, state: true });
+
+  if (!product) {
+    return res.status(404).json({
+      ok: false,
+      msg: `No existe el producto con id ${id}`,
+    });
+  }
+
+  try {
+    //! Solo se aceptan keys ya persistidas: nunca objetos de imagen del cliente.
+    if (!Array.isArray(keys)) {
+      return res.status(400).json({
+        ok: false,
+        msg: "keys debe ser un arreglo con las keys de las imágenes del producto",
+      });
+    }
+
+    if (keys.some((key) => typeof key !== "string" || key.trim() === "")) {
+      return res.status(400).json({
+        ok: false,
+        msg: "Cada key debe ser un texto no vacío",
+      });
+    }
+
+    if (new Set(keys).size !== keys.length) {
+      return res.status(400).json({
+        ok: false,
+        msg: "No se permiten keys de imagen duplicadas",
+      });
+    }
+
+    //? El orden del arreglo es la fuente de verdad: images[0] es la portada del catálogo.
+    const imagesByKey = new Map(product.images.map((image) => [image.key, image]));
+
+    const unknownKey = keys.find((key) => !imagesByKey.has(key));
+    if (unknownKey) {
+      return res.status(400).json({
+        ok: false,
+        msg: `La key ${unknownKey} no pertenece a las imágenes del producto`,
+      });
+    }
+
+    if (keys.length !== imagesByKey.size) {
+      return res.status(400).json({
+        ok: false,
+        msg: `Se deben enviar exactamente las ${imagesByKey.size} keys de las imágenes del producto`,
+      });
+    }
+
+    //* Validado el conjunto completo, se reordena conservando key y url persistidos.
+    product.images = keys.map((key) => {
+      const image = imagesByKey.get(key);
+      return { _id: image._id, key: image.key, url: image.url };
+    });
+    await product.save();
+
+    await refreshProductCache(product);
+
+    res.json({
+      ok: true,
+      msg: "Orden de imágenes actualizado correctamente",
+      model: product,
+      images: product.images,
+    });
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      msg: "Error al reordenar las imágenes",
+      error: err.message,
+    });
+  }
+};
+
 const addProductLogoToSell = async (req, res = response) => {
   const { id } = req.params;
   const { lineItemId } = req.body;
@@ -315,6 +393,7 @@ module.exports = {
   addImageToArray,
   addProductLogoToSell,
   removeImageFromArray,
+  reorderProductImages,
   uploadSellFinishedInvoice,
   uploadSellFinishedShippingGuide,
 };

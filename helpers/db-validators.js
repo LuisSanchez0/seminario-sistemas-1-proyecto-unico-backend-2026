@@ -37,6 +37,17 @@ const includedColection = ( coleccion = '', allowCollection = [] ) => {
     return true;
 }
 
+const uniqueImageKeys = ( keys = [] ) => {
+
+    const unique = new Set( keys );
+
+    if( unique.size !== keys.length ){
+        throw new Error('No se permiten keys de imagen duplicadas');
+    }
+
+    return true;
+}
+
 const existingProduct = async( id = '' ) => {
     const productExists = await Product.findOne({ _id: id, state: true });
     if( !productExists ){
@@ -115,5 +126,6 @@ module.exports = {
     existingUserById,
     includedColection,
     registerEmail,
+    uniqueImageKeys,
     validatePhoneNumber,
 }

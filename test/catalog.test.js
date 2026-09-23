@@ -102,6 +102,10 @@ test('cosmetics catalog integration (isolated MongoDB and Redis; mocked S3 trans
     });
     return { status: result.status, body: await result.json() };
   };
+  const refreshReorderedProductCache = async id => {
+    const { refreshProductCache } = require('../helpers/product-cache');
+    await refreshProductCache(await Product.findById(id));
+  };
   let brand, baseSubcategory, lipsSubcategory, product;
   const newProduct = () => ({ title: 'Fit Me Matte + Poreless', price: 85, description: 'Base líquida de acabado mate', stock: 15, slug: 'fit-me-matte-poreless', category: 'ROSTRO', subcategory: baseSubcategory.id, brand: brand.id });
 
@@ -237,6 +241,74 @@ test('cosmetics catalog integration (isolated MongoDB and Redis; mocked S3 trans
     assert.deepEqual(deletedImages, [key]);
     assert.equal((await request('GET', `/products/${product.id}`)).body.images.length, 0);
     assert.equal((await request('GET', `/products/slug/${product.slug}`)).body.images.length, 0);
+  });
+
+  await t.test('image order persists the sent key sequence, moves the catalog cover and rejects any other key set', async () => {
+    const stored = ['a', 'b', 'c', 'd'].map(letter => ({
+      key: `uploads/images/products/${letter}.webp`,
+      url: `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/uploads/images/products/${letter}.webp`,
+    }));
+    const urlByKey = new Map(stored.map(image => [image.key, image.url]));
+    const [a, b, c, d] = stored.map(image => image.key);
+    await Product.findByIdAndUpdate(product.id, { $set: { images: stored } });
+    const endpoint = `/upload/products/${product.id}/images/order`;
+    const s3DeletesBefore = deletedImages.length;
+    const persisted = async () => (await Product.findById(product.id)).images;
+    const keysOf = images => images.map(image => image.key);
+
+    for (const token of [null, commonToken]) {
+      assert.equal((await request('PATCH', endpoint, { keys: [d, a, c, b] }, token)).status, 401);
+    }
+    assert.deepEqual(keysOf(await persisted()), [a, b, c, d]);
+
+    await request('GET', '/products');
+    let result = await request('PATCH', endpoint, { keys: [d, a, c, b] });
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.deepEqual(keysOf(result.body.model.images), [d, a, c, b]);
+    assert.deepEqual(keysOf(result.body.images), [d, a, c, b]);
+    assert.equal(result.body.model.brand.id, brand.id);
+    // Reordenar nunca regenera una URL ni toca S3.
+    assert.deepEqual((await persisted()).map(image => image.url), [d, a, c, b].map(key => urlByKey.get(key)));
+    assert.deepEqual(keysOf(await persisted()), [d, a, c, b]);
+    assert.equal((await redis.keys('products:*')).length, 0);
+    assert.equal(JSON.parse(await redis.get(`product:${product.id}`)).images[0].key, d);
+    assert.equal(JSON.parse(await redis.get(`product:${product.slug}`)).images[0].key, d);
+    assert.equal((await request('GET', `/products/${product.id}`)).body.images[0].key, d);
+    assert.equal((await request('GET', `/products/slug/${product.slug}`)).body.images[0].key, d);
+    assert.equal((await request('GET', '/products')).body.products[0].images[0].key, d);
+
+    // La primera imagen del arreglo es la portada del catálogo.
+    result = await request('PATCH', endpoint, { keys: [c, a, b, d] });
+    assert.equal(result.status, 200);
+    assert.equal(result.body.model.images[0].key, c);
+    assert.equal((await persisted())[0].key, c);
+    assert.equal((await request('GET', `/products/${product.id}`)).body.images[0].key, c);
+
+    const unchanged = [c, a, b, d];
+    for (const payload of [
+      { keys: [c, 'uploads/images/products/x.webp', b, d] },
+      { keys: [c, a, b] },
+      { keys: [c, c, a, b] },
+      { keys: [] },
+      { keys: [c, '', a, b] },
+      { keys: [c, 5, a, b] },
+      { keys: 'uploads/images/products/c.webp' },
+      {},
+      { images: [{ key: c, url: 'https://atacante.example/inyectada.webp' }] },
+    ]) {
+      const rejected = await request('PATCH', endpoint, payload);
+      assert.equal(rejected.status, 400, JSON.stringify(payload));
+      assert.equal(typeof rejected.body.msg, 'string');
+      assert.deepEqual(keysOf(await persisted()), unchanged, JSON.stringify(payload));
+    }
+    assert.deepEqual((await persisted()).map(image => image.url), unchanged.map(key => urlByKey.get(key)));
+
+    assert.equal((await request('PATCH', '/upload/products/invalid/images/order', { keys: [c] })).status, 400);
+    assert.equal((await request('PATCH', `/upload/products/${new mongoose.Types.ObjectId()}/images/order`, { keys: [c] })).status, 404);
+    assert.equal(deletedImages.length, s3DeletesBefore);
+
+    await Product.findByIdAndUpdate(product.id, { $set: { images: [] } });
+    await refreshReorderedProductCache(product.id);
   });
 
   await t.test('soft deletion clears all product caches and permits unused taxonomy deletion/reuse', async () => {
