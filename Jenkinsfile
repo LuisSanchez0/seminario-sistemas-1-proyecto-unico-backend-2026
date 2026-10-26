@@ -6,7 +6,7 @@ pipeline {
     choice(name: 'BACKEND_ACTION', choices: ['deploy', 'tunnel-status', 'tunnel-rotate'],
       description: 'deploy: release this commit. tunnel-status: re-detect and republish the current TEMPORARY Quick Tunnel URL (after an EC2 reboot or cloudflared restart). tunnel-rotate: restart cloudflared to obtain a NEW URL.')
     booleanParam(name: 'TRIGGER_FRONTEND', defaultValue: true, description: 'Then deploy the frontend with the verified API URL (required whenever the tunnel URL changes)')
-    string(name: 'FRONTEND_JOB', defaultValue: 'luminabeauty-frontend/main', description: 'Frontend pipeline job path')
+    string( name: 'FRONTEND_JOB', defaultValue: 'lumina-frontend', description: 'Frontend pipeline job path')
     string(name: 'AWS_REGION', defaultValue: 'us-east-1', description: 'Must match Terraform aws_region')
     string(name: 'VERCEL_ORG_ID', defaultValue: '', description: 'Only for a personal Vercel account (Terraform vercel_team_id is then empty)')
   }
@@ -29,8 +29,7 @@ pipeline {
       when { allOf { branch 'main'; not { changeRequest() }; expression { params.DEPLOY } } }
       steps {
         withCredentials([
-          [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'lumina-aws-deploy'],
-          // The single Terraform stack also refreshes the Vercel project during the drift-blocking plan.
+          // AWS credentials come from the Jenkins EC2 instance IAM role.
           string(credentialsId: 'lumina-vercel-terraform', variable: 'VERCEL_API_TOKEN'),
           file(credentialsId: 'lumina-terraform-backend', variable: 'TF_BACKEND'),
           file(credentialsId: 'lumina-terraform-vars', variable: 'TF_VARS')
