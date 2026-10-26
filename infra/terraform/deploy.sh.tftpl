@@ -16,8 +16,44 @@ assert all(values.get(key, '').strip() for key in required), 'Missing required p
 assert 'QA_SMTP_PORT' not in values, 'QA mail transport forbidden'
 assert 'AWS_ACCESS_KEY_ID' not in values and 'AWS_SECRET_ACCESS_KEY' not in values, 'Use EC2 instance role'
 PYENV
+#docker load --input image.tar.gz >/dev/null
+#docker image inspect 'lumina-api:{{ Version }}' | python3 -c 'import sys,json; image=json.load(sys.stdin)[0]; assert image["Config"]["Labels"]["org.opencontainers.image.revision"] == "{{ Version }}"'
+# Configuration and artifact verified before stopping the running service. Brief downtime is expected.
 docker load --input image.tar.gz >/dev/null
 docker image inspect 'lumina-api:{{ Version }}' | python3 -c 'import sys,json; image=json.load(sys.stdin)[0]; assert image["Config"]["Labels"]["org.opencontainers.image.revision"] == "{{ Version }}"'
+
+# Redis runs locally on the backend EC2.
+# The API uses --network host, therefore it reaches Redis through 127.0.0.1:6390.
+# Redis is never exposed publicly; the host binding is loopback-only.
+docker pull redis:7-alpine >/dev/null
+
+if ! docker volume inspect lumina-redis-data >/dev/null 2>&1; then
+  docker volume create lumina-redis-data >/dev/null
+fi
+
+if docker container inspect lumina-redis >/dev/null 2>&1; then
+  docker rm -f lumina-redis >/dev/null
+fi
+
+docker run -d \
+  --name lumina-redis \
+  --restart unless-stopped \
+  -p 127.0.0.1:6390:6379 \
+  -v lumina-redis-data:/data \
+  redis:7-alpine \
+  redis-server --appendonly yes >/dev/null
+
+redis_healthy=0
+for attempt in $(seq 1 30); do
+  if docker exec lumina-redis redis-cli ping 2>/dev/null | grep -q '^PONG$'; then
+    redis_healthy=1
+    break
+  fi
+  sleep 1
+done
+
+[ "$redis_healthy" = 1 ]
+
 # Configuration and artifact verified before stopping the running service. Brief downtime is expected.
 if docker container inspect lumina-api >/dev/null 2>&1; then docker rm -f lumina-api >/dev/null; fi
 mv app.env.next app.env
