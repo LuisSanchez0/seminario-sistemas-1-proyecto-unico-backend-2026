@@ -11,7 +11,14 @@ pipeline {
     string(name: 'VERCEL_ORG_ID', defaultValue: '', description: 'Only for a personal Vercel account (Terraform vercel_team_id is then empty)')
   }
   stages {
-    stage('Checkout') { steps { checkout scm } }
+    stage('Checkout') {
+      steps {
+        script {
+          def scmVars = checkout scm
+          env.GIT_COMMIT = scmVars.GIT_COMMIT
+        }
+      }
+    }
     stage('Runtime') { steps { sh 'bash ci/check-runtime.sh' } }
     stage('Install') { steps { sh 'npm ci' } }
     stage('Tests') { steps { sh 'npm test' } }
