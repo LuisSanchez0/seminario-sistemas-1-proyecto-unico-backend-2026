@@ -1,5 +1,5 @@
 const { isObjectIdOrHexString } = require('mongoose');
-const { User, Product, Brand, Subcategory, Address, Sell } = require('../models');
+const { User, Product, Brand, Subcategory, Address } = require('../models');
 
 const registerEmail = async ( email = '' ) => {
 
@@ -107,13 +107,6 @@ const existingUserById = async ( id = '' ) => {
     }
 }
 
-const existingSell = async ( id = '' ) => {
-    const sell = await Sell.findOne({ _id: id, isDeleted: false });
-    if( !sell ){
-        throw new Error(`No se encontró la venta con id ${ id }`)
-    }
-}
-
 module.exports = {
     existingBrand,
     existingSubcategory,
@@ -121,7 +114,6 @@ module.exports = {
     existsAddress,
     existingGoogleUser,
     existingProduct,
-    existingSell,
     existingUser,
     existingUserById,
     includedColection,

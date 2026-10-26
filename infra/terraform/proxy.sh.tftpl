@@ -1,0 +1,55 @@
+# --- Reverse proxy: Caddy terminates public TLS on :443 (redirect/ACME on :80); the API stays on loopback ---
+# Idempotent, so existing and freshly bootstrapped instances converge on every deployment.
+restart_caddy=0
+reload_caddy=0
+same_file() { [ -f "$2" ] && [ "$(sha256sum < "$1")" = "$(sha256sum < "$2")" ]; }
+if ! /usr/bin/caddy version 2>/dev/null | grep -q '^v${caddy_version} '; then
+  command -v tar >/dev/null || dnf install -y tar
+  curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --max-time 120 \
+    -o caddy.tar.gz 'https://github.com/caddyserver/caddy/releases/download/v${caddy_version}/caddy_${caddy_version}_linux_amd64.tar.gz'
+  printf '%s  caddy.tar.gz\n' '${caddy_sha512}' | sha512sum -c -
+  tar -xzf caddy.tar.gz caddy
+  install -m 0755 caddy /usr/bin/caddy.next
+  mv -f /usr/bin/caddy.next /usr/bin/caddy
+  rm -f caddy.tar.gz caddy
+  restart_caddy=1
+fi
+getent group caddy >/dev/null || groupadd --system caddy
+getent passwd caddy >/dev/null || useradd --system --gid caddy --home-dir /var/lib/caddy --no-create-home --shell /sbin/nologin caddy
+# ACME account and certificate keys live only here (encrypted EBS), never in Git or Terraform state.
+install -d -m 0750 -o caddy -g caddy /var/lib/caddy
+install -d -m 0755 /etc/caddy
+cat > /etc/caddy/Caddyfile.next <<'CADDYFILE'
+${trimspace(caddyfile)}
+CADDYFILE
+chmod 0644 /etc/caddy/Caddyfile.next
+(cd / && runuser -u caddy -- env XDG_DATA_HOME=/var/lib/caddy XDG_CONFIG_HOME=/var/lib/caddy \
+  /usr/bin/caddy validate --config /etc/caddy/Caddyfile.next --adapter caddyfile >/dev/null)
+if same_file /etc/caddy/Caddyfile.next /etc/caddy/Caddyfile; then rm -f /etc/caddy/Caddyfile.next
+else mv -f /etc/caddy/Caddyfile.next /etc/caddy/Caddyfile; reload_caddy=1; fi
+cat > /etc/systemd/system/caddy.service.next <<'UNIT'
+${trimspace(caddy_service)}
+UNIT
+chmod 0644 /etc/systemd/system/caddy.service.next
+if same_file /etc/systemd/system/caddy.service.next /etc/systemd/system/caddy.service; then rm -f /etc/systemd/system/caddy.service.next
+else mv -f /etc/systemd/system/caddy.service.next /etc/systemd/system/caddy.service; systemctl daemon-reload; restart_caddy=1; fi
+# Switching from quick_tunnel: stop the temporary tunnel so the API has a single public path.
+if [ -f /etc/systemd/system/lumina-quick-tunnel.service ]; then systemctl disable --now lumina-quick-tunnel >/dev/null 2>&1 || true; fi
+systemctl enable caddy >/dev/null 2>&1
+if [ "$restart_caddy" = 1 ] || ! systemctl is-active --quiet caddy; then systemctl restart caddy
+elif [ "$reload_caddy" = 1 ]; then systemctl reload caddy; fi
+systemctl is-active --quiet caddy
+# Full path through Caddy with normal certificate validation (system CA store, no -k).
+# The first issuance requires the public DNS record for ${domain} to point at the Elastic IP.
+proxied=0
+for attempt in $(seq 1 24); do
+  if curl --fail --silent --max-time 5 --resolve '${domain}:443:127.0.0.1' 'https://${domain}/api/health' > proxy-health.json; then
+    if python3 -c 'import json; h=json.load(open("proxy-health.json")); assert h.get("ok") is True and h.get("version") == "{{ Version }}"'; then
+      proxied=1
+      break
+    fi
+  fi
+  sleep 5
+done
+rm -f proxy-health.json
+[ "$proxied" = 1 ]

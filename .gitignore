@@ -25,3 +25,14 @@ yarn-error.log
 Thumbs.db
 
 .env
+.env.*
+!.env.example
+artifacts/
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!*.tfvars.example
+backend.hcl
+crash.log

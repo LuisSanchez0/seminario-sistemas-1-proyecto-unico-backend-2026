@@ -10,3 +10,12 @@ tmp
 # Secretos: las variables llegan por env_file de Compose, NO deben hornearse en la imagen
 .env
 .env.*
+
+artifacts
+infra
+qa
+test
+ci
+docs
+Jenkinsfile
+*.tfstate*

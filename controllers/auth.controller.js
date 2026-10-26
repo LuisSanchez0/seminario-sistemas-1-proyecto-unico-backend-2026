@@ -161,7 +161,6 @@ const googleAuth = async (req = request, res = response) => {
 
       //!Si este ya fue registrado con google, solo lo logueamos
       const token = await generateJWT(user.id);
-      console.log(user, token);
       return res.status(200).json({
         ok: true,
         user,
@@ -170,7 +169,7 @@ const googleAuth = async (req = request, res = response) => {
     } else {
       const newUser = new User({
         email,
-        password: "ProWe@r2025:)",
+        password: require("node:crypto").randomBytes(32).toString("hex"),
         name,
         google: true,
         isAuthenticated: true
@@ -182,7 +181,6 @@ const googleAuth = async (req = request, res = response) => {
 
       const token = await generateJWT(newUser.id);
 
-      console.log(newUser, token);
       return res.status(201).json({
         ok: true,
         user: newUser,
@@ -200,6 +198,7 @@ const googleAuth = async (req = request, res = response) => {
 
 const requestCode = async (req = request, res = response) => {
   const { email, type } = req.body;
+  if (type === "reset") return require("./password-recovery.controller").requestRecovery(req, res);
 
   if (!type)
     return res.status(400).json({
@@ -218,23 +217,17 @@ const requestCode = async (req = request, res = response) => {
 
   try {
     if (type === "2fa") {
-      await sendVerificationCode(email, user.name, "2fa");
+      await sendVerificationCode(email, user.name, "2fa", { ip: req.ip });
       res.json({
         ok: true,
         msg: "Código 2FA enviado a tu correo",
       });
-    } else if (type === "reset") {
-      await sendVerificationCode(email, user.name, "reset");
-      res.json({
-        ok: true,
-        msg: "Código de restablecimiento enviado a tu correo",
-      });
     }
   } catch (error) {
-    console.error("Error al solicitar código 2FA:", error);
-    res.status(500).json({
+    if (error.retryAfter) res.set("Retry-After", String(error.retryAfter));
+    res.status(error.status || 500).json({
       ok: false,
-      msg: "Error al enviar el correo",
+      msg: error.status ? error.message : "Error al enviar el correo",
     });
   }
 };
@@ -268,41 +261,6 @@ const verify2FACode = async (req, res) => {
     });
   }
 };
-const verifyResetCode = async (req, res) => {
-  const { email, code, newPassword } = req.body;
-
-  try {
-    await validateCode(email, code, "reset");
-
-    const user = await User.findOne({ email });
-    if (!user)
-      return res.status(400).json({
-        ok: false,
-        msg: "Usuario no encontrado",
-      });
-
-    if (newPassword.length < 4) {
-      return res.status(400).json({
-        ok: false,
-        msg: "La nueva contraseña debe tener al menos 4 caracteres",
-      });
-    }
-
-    const salt = bcryptjs.genSaltSync();
-    user.password = bcryptjs.hashSync(newPassword, salt);
-    await user.save();
-
-    res.json({
-      ok: true,
-      msg: "Contraseña actualizada",
-    });
-  } catch (error) {
-    res.status(400).json({
-      ok: false,
-      msg: error.message,
-    });
-  }
-};
 
 module.exports = {
   creatingNewUser,
@@ -312,5 +270,4 @@ module.exports = {
   requestCode,
   revalidateToken,
   verify2FACode,
-  verifyResetCode,
 };

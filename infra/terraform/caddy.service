@@ -1,0 +1,28 @@
+# Based on the official caddy-dist unit. Managed by Terraform (aws_ssm_document.deploy).
+[Unit]
+Description=Caddy HTTPS reverse proxy for the Lumina API
+Documentation=https://caddyserver.com/docs/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+User=caddy
+Group=caddy
+Environment=XDG_DATA_HOME=/var/lib/caddy XDG_CONFIG_HOME=/var/lib/caddy
+ExecStart=/usr/bin/caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+ExecReload=/usr/bin/caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile --force
+RuntimeDirectory=caddy
+RuntimeDirectoryMode=0750
+TimeoutStopSec=5s
+LimitNOFILE=1048576
+Restart=on-failure
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+NoNewPrivileges=true
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target

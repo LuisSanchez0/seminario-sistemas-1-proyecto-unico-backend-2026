@@ -1,0 +1,16 @@
+# Managed by Terraform (aws_ssm_document.deploy). Manual edits are overwritten on the next deployment.
+{
+	# Admin API on a root/caddy-only Unix socket: the host-network API container cannot reach it.
+	admin unix//run/caddy/admin.sock
+	servers {
+		# The security group exposes TCP only; no HTTP/3 over UDP.
+		protocols h1 h2
+	}
+}
+
+# Automatic HTTPS: ACME certificate (Let's Encrypt), renewal and HTTP->HTTPS redirect on :80.
+${domain} {
+	# Caddy replaces client-supplied X-Forwarded-For with the real peer and sets
+	# X-Forwarded-Proto/Host; Host is passed through unchanged.
+	reverse_proxy 127.0.0.1:${port}
+}

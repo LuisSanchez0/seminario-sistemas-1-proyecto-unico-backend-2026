@@ -1,0 +1,66 @@
+# --- TEMPORARY exposure: Cloudflare Quick Tunnel, outbound only, https://<random>.trycloudflare.com -> 127.0.0.1:${port} ---
+# The hostname changes whenever cloudflared restarts (rotate, unit/binary change, crash, reboot). The frontend must be
+# redeployed with the new URL; ci/deploy.py publishes it. Not a stable production hostname.
+tunnel_action='${action}'
+expected_version='${expected_version}'
+restart_tunnel=0
+same_file() { [ -f "$2" ] && [ "$(sha256sum < "$1")" = "$(sha256sum < "$2")" ]; }
+tunnel_host() { curl --fail --silent --max-time 2 http://127.0.0.1:20241/quicktunnel | python3 -c 'import sys,json; print(json.load(sys.stdin)["hostname"])'; }
+if ! /usr/local/bin/cloudflared --version 2>/dev/null | grep -q '^cloudflared version ${cloudflared_version} '; then
+  curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --max-time 120 \
+    -o cloudflared.next 'https://github.com/cloudflare/cloudflared/releases/download/${cloudflared_version}/cloudflared-linux-amd64'
+  printf '%s  cloudflared.next\n' '${cloudflared_sha256}' | sha256sum -c -
+  install -m 0755 cloudflared.next /usr/local/bin/cloudflared.next
+  mv -f /usr/local/bin/cloudflared.next /usr/local/bin/cloudflared
+  rm -f cloudflared.next
+  restart_tunnel=1
+fi
+getent group cloudflared >/dev/null || groupadd --system cloudflared
+getent passwd cloudflared >/dev/null || useradd --system --gid cloudflared --home-dir /var/lib/cloudflared --no-create-home --shell /sbin/nologin cloudflared
+# A config.yml turns cloudflared into a named tunnel (future stable setup); refuse to mix the two silently.
+for config in /etc/cloudflared/config.yml /etc/cloudflared/config.yaml /usr/local/etc/cloudflared/config.yml; do
+  [ ! -e "$config" ] || { echo "Named-tunnel config $config present; quick_tunnel mode refuses to start" >&2; exit 1; }
+done
+cat > /etc/systemd/system/lumina-quick-tunnel.service.next <<'UNIT'
+${trimspace(tunnel_service)}
+UNIT
+chmod 0644 /etc/systemd/system/lumina-quick-tunnel.service.next
+if same_file /etc/systemd/system/lumina-quick-tunnel.service.next /etc/systemd/system/lumina-quick-tunnel.service; then rm -f /etc/systemd/system/lumina-quick-tunnel.service.next
+else mv -f /etc/systemd/system/lumina-quick-tunnel.service.next /etc/systemd/system/lumina-quick-tunnel.service; systemctl daemon-reload; restart_tunnel=1; fi
+# Switching from direct_https: Caddy must not keep public 80/443 listeners (the security group closes them too).
+if [ -f /etc/systemd/system/caddy.service ]; then systemctl disable --now caddy >/dev/null 2>&1 || true; fi
+systemctl enable lumina-quick-tunnel >/dev/null 2>&1
+previous_host=$(tunnel_host 2>/dev/null || true)
+# Restart only when required: every restart rotates the public URL.
+if [ "$tunnel_action" = rotate ] || [ "$restart_tunnel" = 1 ] || ! systemctl is-active --quiet lumina-quick-tunnel; then
+  systemctl restart lumina-quick-tunnel
+else
+  previous_host=''
+fi
+# Bounded poll of cloudflared's machine-readable /quicktunnel endpoint (loopback metrics server).
+host=''
+for attempt in $(seq 1 30); do
+  candidate=$(tunnel_host 2>/dev/null || true)
+  if [ -n "$candidate" ] && [ "$candidate" != "$previous_host" ]; then host=$candidate; break; fi
+  sleep 2
+done
+python3 - "$host" <<'PYHOST'
+import re, sys
+assert re.fullmatch(r'[a-z0-9]+(-[a-z0-9]+)*[.]trycloudflare[.]com', sys.argv[1]), 'cloudflared did not report a valid *.trycloudflare.com hostname'
+PYHOST
+public_api_url="https://$host/api"
+# Full public path (Cloudflare edge -> tunnel -> API) with normal certificate validation; new hostnames take a moment.
+tunneled=0
+for attempt in $(seq 1 30); do
+  if curl --fail --silent --max-time 5 "$public_api_url/health" > tunnel-health.json; then
+    if python3 -c 'import json,sys; h=json.load(open("tunnel-health.json")); v=sys.argv[1]; assert h.get("ok") is True and (not v or h.get("version") == v)' "$expected_version"; then
+      tunneled=1
+      break
+    fi
+  fi
+  sleep 2
+done
+rm -f tunnel-health.json
+[ "$tunneled" = 1 ] || { echo "No healthy API through $public_api_url" >&2; exit 1; }
+systemctl is-active --quiet lumina-quick-tunnel
+echo "LUMINA_PUBLIC_API_URL=$public_api_url"

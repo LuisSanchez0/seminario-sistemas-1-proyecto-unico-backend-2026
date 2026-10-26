@@ -1,0 +1,27 @@
+aws_region = "us-east-1"
+environment = "staging"
+vpc_id = "vpc-REPLACE"
+subnet_id = "subnet-REPLACE"
+frontend_bucket_name = "REPLACE-lumina-staging-frontend"
+artifact_bucket_name = "REPLACE-lumina-staging-artifacts"
+media_bucket_name = "REPLACE-existing-media-bucket"
+app_env_parameter_name = "/lumina/staging/app-env"
+# TEMPORARY no-domain demo (default): Cloudflare Quick Tunnel, random https://*.trycloudflare.com URL that changes
+# whenever cloudflared restarts. No domain, DNS, Elastic IP or inbound rule. NOT a stable production hostname.
+backend_exposure_mode = "quick_tunnel"
+# Stable alternative once a domain exists (Caddy + Let's Encrypt on an Elastic IP, inbound 80/443):
+# backend_exposure_mode = "direct_https"
+# backend_domain = "api.REPLACE.example"
+# public_ingress_cidrs = ["0.0.0.0/0"]
+# Set real private/restricted service destinations and their actual ports.
+dependency_egress = {
+  mongo = { cidr = "10.0.10.0/24", port = 27017 }
+  redis = { cidr = "10.0.20.0/24", port = 6379 }
+}
+# Vercel (token only via VERCEL_API_TOKEN). Omit vercel_team for a personal account.
+# vercel_team = "REPLACE-team-slug"
+# vercel_project_name = "lumina-staging-frontend"
+# Only if Vercel assigned a different production hostname than <project>.vercel.app:
+# vercel_production_domain = "REPLACE.vercel.app"
+# Keep the old HTTP S3 website until Vercel is verified, then set false.
+legacy_frontend_website = true

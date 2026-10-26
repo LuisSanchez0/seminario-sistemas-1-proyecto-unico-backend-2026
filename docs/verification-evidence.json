@@ -1,0 +1,61 @@
+{
+  "recorded_at": "2026-10-25T21:43:37-06:00",
+  "backend_tests": {
+    "total": 70,
+    "passed": 70,
+    "failed": 0,
+    "skipped": 0
+  },
+  "frontend_tests": {
+    "files": 24,
+    "total": 249,
+    "passed": 249,
+    "failed": 0
+  },
+  "browser": {
+    "passed": 17,
+    "failed": 0,
+    "scenarios": [
+      "1. Open actual login",
+      "2. Forgot-password navigation",
+      "Chrome axe including contrast: identifier",
+      "Mobile layout without horizontal overflow",
+      "3. Enter isolated QA account",
+      "4. Request code through browser",
+      "5. Real SMTP code delivery to local capture server",
+      "6. Wrong code produces visible error",
+      "Chrome axe including contrast: code with error",
+      "7. Delivered code verifies",
+      "Chrome axe including contrast: new password",
+      "Desktop layout without horizontal overflow",
+      "8. Enter and confirm new password",
+      "9. Reset succeeds and returns to login",
+      "10. Old password rejected in browser login",
+      "11. New password logs in through browser",
+      "12. Observed code and authorization cannot be replayed"
+    ],
+    "screenshot": "/tmp/lumina-recovery-browser.png"
+  },
+  "terraform": {
+    "version": "1.13.5",
+    "aws_provider": "6.70.0",
+    "fmt": "PASS",
+    "init_backend_false": "PASS",
+    "validate": "PASS",
+    "mock_plan_test": {
+      "passed": 1,
+      "assertions": 6,
+      "failed": 0
+    },
+    "live_plan": "BLOCKED",
+    "apply": "NOT RUN"
+  },
+  "jenkins": {
+    "groovy_syntax": "PASS",
+    "actual_execution": "BLOCKED"
+  },
+  "aws": {
+    "identity_check": "InvalidClientTokenId",
+    "deployment": "BLOCKED"
+  }
+}

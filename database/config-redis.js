@@ -6,14 +6,14 @@ const redisClient = createClient({
   url: REDIS_URL
 });
 
-redisClient.on('connect', () => console.log('Conectado a Redis:', REDIS_URL));
+redisClient.on('connect', () => console.log('Conectado a Redis'));
 redisClient.on('error', (err) => console.error('Error en Redis:', err.code || err.message || err));
 
 (async () => {
   try {
     if (!redisClient.isOpen) await redisClient.connect();
   } catch (err) {
-    console.error(`No se pudo conectar a Redis (${REDIS_URL}):`, err.code || err.message || err);
+    console.error('No se pudo conectar a Redis:', err.code || err.message || err);
   }
 })();
 

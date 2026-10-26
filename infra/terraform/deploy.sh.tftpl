@@ -1,0 +1,49 @@
+#!/bin/bash
+set -euo pipefail
+umask 077
+exec 9>/opt/lumina/deploy.lock
+flock -n 9
+cd /opt/lumina
+export AWS_DEFAULT_REGION='${region}'
+aws s3 cp 's3://${bucket}/{{ ArtifactKey }}' image.tar.gz --only-show-errors
+printf '%s  image.tar.gz\n' '{{ Checksum }}' | sha256sum -c -
+aws ssm get-parameter --name '${parameter}' --with-decryption --query Parameter.Value --output text > app.env.next
+python3 - <<'PYENV'
+from pathlib import Path
+values = dict(line.split('=', 1) for line in Path('app.env.next').read_text().splitlines() if line and not line.startswith('#') and '=' in line)
+required = ['MONGODB_CNN', 'REDIS_URL', 'SECRETEORPRIVATEKEY', 'MAIL_USER', 'MAIL_PASS', 'AWS_BUCKET_NAME']
+assert all(values.get(key, '').strip() for key in required), 'Missing required production configuration'
+assert 'QA_SMTP_PORT' not in values, 'QA mail transport forbidden'
+assert 'AWS_ACCESS_KEY_ID' not in values and 'AWS_SECRET_ACCESS_KEY' not in values, 'Use EC2 instance role'
+PYENV
+docker load --input image.tar.gz >/dev/null
+docker image inspect 'lumina-api:{{ Version }}' | python3 -c 'import sys,json; image=json.load(sys.stdin)[0]; assert image["Config"]["Labels"]["org.opencontainers.image.revision"] == "{{ Version }}"'
+# Configuration and artifact verified before stopping the running service. Brief downtime is expected.
+if docker container inspect lumina-api >/dev/null 2>&1; then docker rm -f lumina-api >/dev/null; fi
+mv app.env.next app.env
+# Host network + HOST=127.0.0.1: the API listens on loopback only, so the local cloudflared (quick_tunnel) or
+# Caddy (direct_https) is its sole client and Express sees the peer 127.0.0.1. TRUST_PROXY=cloudflared honours
+# CF-Connecting-IP / loopback honours X-Forwarded-For only from that peer. Bridge publishing would show the Docker
+# gateway instead and collapse every client into one rate-limit bucket. -e values override app.env.
+docker run -d --name lumina-api --restart unless-stopped --init --read-only --tmpfs /tmp:rw,noexec,nosuid,size=128m \
+  --cap-drop ALL --security-opt no-new-privileges --env-file app.env --network host \
+  -e NODE_ENV=production -e HOST=127.0.0.1 -e PORT=${port} -e TRUST_PROXY=${trust_proxy} -e CORS_ORIGINS='${cors_origins}' \
+  -e AWS_REGION='${region}' -e APP_VERSION='{{ Version }}' \
+  --log-driver awslogs --log-opt awslogs-region='${region}' \
+  --log-opt awslogs-group='${log_group}' --log-opt awslogs-stream='{{ Version }}' \
+  'lumina-api:{{ Version }}' >/dev/null
+healthy=0
+for attempt in $(seq 1 30); do
+  if curl --fail --silent --max-time 5 http://127.0.0.1:${port}/api/health > health.json; then
+    if python3 -c 'import json; h=json.load(open("health.json")); assert h.get("ok") is True and h.get("version") == "{{ Version }}"'; then
+      healthy=1
+      break
+    fi
+  fi
+  sleep 3
+done
+# Fail visibly; no claim of automatic rollback or zero downtime.
+[ "$healthy" = 1 ]
+docker inspect lumina-api | python3 -c 'import sys,json; assert json.load(sys.stdin)[0]["State"]["Running"]'
+rm -f image.tar.gz
+${exposure}

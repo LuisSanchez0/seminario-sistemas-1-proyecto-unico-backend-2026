@@ -1,0 +1,28 @@
+# Managed by Terraform (aws_ssm_document.deploy / tunnel). TEMPORARY demo exposure.
+# Every start of this service gets a NEW random https://*.trycloudflare.com hostname (restart, reboot, crash).
+[Unit]
+Description=TEMPORARY Cloudflare Quick Tunnel for the Lumina API (random trycloudflare.com URL)
+Documentation=https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cloudflared
+Group=cloudflared
+# Quick tunnel: no config file, Cloudflare account or token. Outbound only; the API stays on loopback.
+# Metrics (including /quicktunnel, the machine-readable hostname) listen on loopback only.
+ExecStart=/usr/local/bin/cloudflared tunnel --no-autoupdate --metrics 127.0.0.1:20241 --url http://127.0.0.1:${port}
+Restart=on-failure
+RestartSec=5s
+Environment=HOME=/var/lib/cloudflared
+StateDirectory=cloudflared
+StateDirectoryMode=0750
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

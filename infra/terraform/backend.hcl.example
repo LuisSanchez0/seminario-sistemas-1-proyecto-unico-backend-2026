@@ -1,0 +1,6 @@
+# Bootstrap this private, encrypted, versioned state bucket separately; never use the public frontend bucket.
+bucket = "REPLACE-team-private-terraform-state"
+key = "lumina/staging/terraform.tfstate"
+region = "us-east-1"
+encrypt = true
+use_lockfile = true
